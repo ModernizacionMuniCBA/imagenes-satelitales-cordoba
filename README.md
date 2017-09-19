@@ -26,12 +26,12 @@ archivo CSV con la lista de cada producto por año.
 
 Se pide:
 
-* Bajo porcentaje de nubosidad (menor a 1%)
+* Bajo porcentaje de nubosidad (menor a 1%).
 * Collección de nivel 1 (Tier 1): Las imágenes ya tuvieron procesamiento
   geométrico y radiométrico.
-* Sensores TM, ETM+ y OLI/TIRS: Estos sensores tienen bandas para rojo, verde y azul
+* Sensores TM, ETM+ y OLI/TIRS: Estos sensores tienen bandas para rojo, verde y azul.
 * Usa Landsat 5 en vez de Landsat 7 post-2003 por la [falla del scanline
-  corrector](https://landsat.usgs.gov/slc-products-background)
+  corrector](https://landsat.usgs.gov/slc-products-background).
 
 ...
 
