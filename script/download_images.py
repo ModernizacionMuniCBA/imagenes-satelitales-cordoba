@@ -30,7 +30,6 @@ if __name__ == '__main__':
     import argparse
     import csv
     import sys
-    from itertools import groupby
 
     parser = argparse.ArgumentParser(
             description='Descarga imágenes de Landsat o Sentinel-2 ' \
