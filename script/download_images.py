@@ -13,10 +13,10 @@ def download_product(product, dstpath, dry_run=False):
     satsensor = '{}-{}'.format(product['spacecraft_id'], product['sensor_id'])
     path = os.path.join(dstpath, satsensor, product['year'], product['id'])
     if not dry_run:
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
 
     # Arma cadena del comando
-    cmd = 'gsutil cp -r {src} {dst}'.format(src=product['base_url'], dst=path)
+    cmd = 'gsutil -m cp -r {src} {dst}'.format(src=product['base_url'], dst=path)
 
     # Si está en modo dry-run sólo imprime en pantalla el comando
     if dry_run:
