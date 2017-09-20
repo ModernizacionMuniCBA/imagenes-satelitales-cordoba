@@ -52,11 +52,11 @@ def build_landsat_query(bounding_box):
     """Genera la consulta para el dataset de Landsat."""
     west_lon, south_lat, east_lon, north_lat = bounding_box
     qs = ('SELECT '
+          'FIRST(scene_id) AS id, '
           'YEAR(sensing_time) AS year, '
           'FIRST(sensing_time) as sensing_time, '
-          'FIRST(scene_id) AS scene_id, '
-          'FIRST(spacecraft_id) AS spacecraft_id, '
-          'FIRST(sensor_id) AS sensor_id, '
+          'spacecraft_id, '
+          'sensor_id, '
           'wrs_path, '
           'wrs_row, '
           'FIRST(total_size) AS total_size, '
@@ -74,6 +74,8 @@ def build_landsat_query(bounding_box):
           'AND sensor_id IN ("TM", "ETM", "OLI_TIRS") '
         'GROUP BY '
           'year, '
+          'spacecraft_id, '
+          'sensor_id, '
           'wrs_path, '
           'wrs_row '
         'ORDER BY '
@@ -85,10 +87,12 @@ def build_sentinel2_query(bounding_box):
     """Genera la consulta para el dataset de Sentinel-2."""
     west_lon, south_lat, east_lon, north_lat = bounding_box
     qs = ('SELECT '
+          'FIRST(product_id) AS id, '
           'YEAR(sensing_time) AS year, '
           'FIRST(sensing_time) AS sensing_time, '
+          '"SENTINEL_2" AS spacecraft_id, '
+          '"MSI" AS sensor_id, '
           'FIRST(granule_id) AS granule_id, '
-          'FIRST(product_id) AS product_id, '
           'mgrs_tile, '
           'FIRST(total_size) AS total_size, '
           'FIRST(base_url) AS base_url '
