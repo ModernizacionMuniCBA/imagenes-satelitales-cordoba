@@ -17,7 +17,7 @@ Para esta etapa del proceso es necesario una cuenta de Google e [instalar Google
 *(explicar como instalar y configurar gsutil)*
 ...
 
-#### Consulta con `script/query_images`
+#### Consulta con `script/query`
 
 Consulta en el [dataset de
 BigQuery](https://bigquery.cloud.google.com/table/bigquery-public-data:cloud_storage_geo_index.landsat_index)
@@ -35,7 +35,7 @@ Se pide:
 
 ...
 
-#### Descarga con `script/download_images`
+#### Descarga con `script/download`
 
 A partir del CSV generado anteriormente, descarga las imágenes del [dataset de
 Google](https://cloud.google.com/storage/docs/public-datasets/landsat) usando
@@ -45,13 +45,21 @@ Google](https://cloud.google.com/storage/docs/public-datasets/landsat) usando
 
 ### Procesamiento de las imágenes
 
+#### GRASS GIS
+
+Lo primero que se debe hacer es convertir las imágenes de Landsat originales a
+reflectancia *Top-of-Atmosphere* (ToA, o *at-sensor reflectance*).
+
+...
+
+#### Otros procesos con `script/process`
+
 A grandes rasgos los pasos de esta etapa son los siguientes:
 
-* `clip`: Se recortan las imágenes con el bounding box del shapefile del
+* `cut_image`: Se recortan las imágenes con el bounding box del shapefile del
   Municipio.
-* `dn_to_toar`: Se convierten los NDs de las imágenes originales a reflectancia
   ToA.
-* `rgb_composite`: Se generan imágenes RGB color natural y color falso.
+* `create_rgb_images`: Se generan imágenes RGB color natural y color falso.
 * `gamma_corr`: Se aplica una corrección de gamma y contraste.
 * `hist_match`: Se aplica *histogram matching* para que las imágenes compuestas
   sean comparables en el tiempo.
