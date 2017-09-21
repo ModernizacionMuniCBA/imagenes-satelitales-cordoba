@@ -30,8 +30,7 @@ Se pide:
 * Collección de nivel 1 (Tier 1): Las imágenes ya tuvieron procesamiento
   geométrico y radiométrico.
 * Sensores TM, ETM+ y OLI/TIRS: Estos sensores tienen bandas para rojo, verde y azul.
-* Usa Landsat 5 en vez de Landsat 7 post-2003 por la [falla del scanline
-  corrector](https://landsat.usgs.gov/slc-products-background).
+* Una imagen de cada satélite, en caso de que haya más de uno en un año dado
 
 ...
 
@@ -56,9 +55,10 @@ reflectancia *Top-of-Atmosphere* (ToA, o *at-sensor reflectance*).
 
 A grandes rasgos los pasos de esta etapa son los siguientes:
 
-* `cut_image`: Se recortan las imágenes con el bounding box del shapefile del
-  Municipio.
-  ToA.
+* `fill_slc_gaps` (sólo **Landsat 7**): Se rellenan los gaps causados por la
+  [falla del scanline corrector](https://landsat.usgs.gov/slc-products-background)
+  post-2003 en el Landsat 7.
+* `cut_image`: Se recortan las imágenes con el bounding box del shapefile pedido.
 * `create_rgb_images`: Se generan imágenes RGB color natural y color falso.
 * `gamma_corr`: Se aplica una corrección de gamma y contraste.
 * `hist_match`: Se aplica *histogram matching* para que las imágenes compuestas
