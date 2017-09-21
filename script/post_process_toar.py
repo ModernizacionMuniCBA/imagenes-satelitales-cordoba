@@ -44,15 +44,12 @@ utilizaron para la generación de las bandas procesadas.
   ] }
 ```
 """
-from pyproj import Proj, transform
-import fiona
 import glob
 import os
-import rasterio
-import rasterio.tools.mask
+import shutil
 import subprocess
 
-def process(out_dir, features, in_path, tag_name=None, dry_run=False):
+def process(out_dir, shp_path, in_path, tag_name=None, dry_run=False):
     out_path = get_output_path(in_path, out_dir, tag_name=tag_name)
 
     # Crea directorio (si no existe)
@@ -62,13 +59,14 @@ def process(out_dir, features, in_path, tag_name=None, dry_run=False):
     # Procesa imagen
     translate(in_path, out_path, dry_run=dry_run)
     fill_gaps(out_path, dry_run=dry_run)
-    cut_image(out_path, out_path, features, dry_run=dry_run)
+    cut_image(out_path, shp_path, dry_run=dry_run)
 
     print('{} written'.format(out_path))
 
     return out_path
 
 def translate(in_path, out_path, dry_run=False):
+    """Convierte el raster a un GeoTIFF comprimido de UInt16"""
     cmd = 'gdal_translate -q -ot UInt16 -of GTiff -scale 0 1 1 10000 ' \
           '-a_nodata 0 {src} -co compress=lzw {dst}'.format(
                   src=in_path, dst=out_path)
@@ -79,6 +77,7 @@ def translate(in_path, out_path, dry_run=False):
     return out_path
 
 def get_output_path(in_path, out_dir, tag_name=None):
+    """Construye la ruta destino de cada banda"""
     dirname, in_fname = os.path.split(in_path)
     satsensor, year = dirname.split('/')[1:3]
     _, band_num = in_fname.split('_B')
@@ -89,8 +88,9 @@ def get_output_path(in_path, out_dir, tag_name=None):
     return os.path.join(out_dir, year, satsensor, out_fname)
 
 def fill_gaps(in_path, dry_run=False):
+    """Rellenar gaps causados por la falla del SLC del Landsat 7"""
     # Sólo rellena gaps si es una imagen del Landsat 7
-    if 'LE07' not in in_path:
+    if 'LANDSAT_7-ETM' not in in_path:
         return in_path
     cmd = 'gdal_fillnodata.py -q {src}'.format(src=in_path)
     if dry_run:
@@ -99,38 +99,18 @@ def fill_gaps(in_path, dry_run=False):
         subprocess.run(cmd, shell=True)
     return in_path
 
-def cut_image(in_path, out_path, features, dry_run=False):
-    """Corta la imagen usando +features+ como máscara"""
+def cut_image(in_path, shp_path, dry_run=False):
+    """Corta la imagen usando el shapefile como máscara"""
+    tmp_path = in_path + '.tmp'
+    cmd = 'gdalwarp -q -cutline {shp} -co compress=lzw -overwrite -crop_to_cutline ' \
+          '{src} {dst}'.format(shp=shp_path, src=in_path, dst=tmp_path)
     if dry_run:
-        return
-    with rasterio.open(in_path) as src:
-        out_image, out_transform = rasterio.tools.mask.mask(src, features, crop=True)
-        out_meta = src.meta.copy()
-        out_meta.update({
-            'driver': 'GTiff',
-            'height': out_image.shape[1],
-            'width': out_image.shape[2],
-            'transform': out_transform
-        })
-        with rasterio.open(out_path, 'w', **out_meta) as dest:
-            dest.write(out_image)
-
-def feature_bounds_from(shape_file):
-    """Devuelve el bounding box del +shape_file+, reproyectado a WGS84"""
-    with fiona.open(shape_file, 'r') as source:
-        orig_proj = Proj(source.crs)
-
-        # Proyección de las imágenes de landsat:
-        dest_proj = Proj('+proj=utm +zone=20 +datum=WGS84 +units=m +no_defs')
-
-        minx, miny, maxx, maxy = source.bounds
-        min_lon, min_lat = transform(orig_proj, dest_proj, minx, miny)
-        max_lon, max_lat = transform(orig_proj, dest_proj, maxx, maxy)
-
-        coords = [[[min_lon, max_lat], [max_lon, max_lat],
-                  [max_lon, min_lat], [min_lon, min_lat], [min_lon, max_lat]]]
-
-        return [{'type': 'Polygon', 'coordinates': coords}]
+        print(cmd)
+        print('mv {} {}'.format(tmp_path, in_path))
+    else:
+        subprocess.run(cmd, shell=True)
+        shutil.move(tmp_path, in_path)
+    return in_path
 
 def each_file(input_dir, pattern):
     pat = os.path.join(input_dir, '**', pattern)
@@ -168,12 +148,11 @@ def main():
     count = multiprocessing.cpu_count()
 
     with multiprocessing.Pool(count) as pool:
-        features = feature_bounds_from(args.shape_file)
         files = list(each_file(args.input_dir, args.pattern))
 
         worker = partial(process,
                 args.output_dir,
-                features,
+                args.shape_file,
                 tag_name=args.tag_name,
                 dry_run=args.dry_run)
         pool.map(worker, files)
