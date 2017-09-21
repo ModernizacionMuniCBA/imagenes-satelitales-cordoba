@@ -81,7 +81,7 @@ if __name__ == '__main__':
             help='Ruta donde están almacenadas las imágenes')
     parser.add_argument('--output-dir', '-o', nargs='?', default='processed_data/',
             help='Ruta donde se guardarán las imágenes procesadas')
-    parser.add_argument('--pattern', nargs='?', default='*_toar',
+    parser.add_argument('--pattern', nargs='?', default='*_TOAR_*',
             help='Patrón de los archivos a ser procesados')
 
     args = parser.parse_args()
