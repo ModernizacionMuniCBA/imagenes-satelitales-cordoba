@@ -55,7 +55,7 @@ def main():
     args = parser.parse_args()
 
     for root, dirs, files in os.walk(args.input_dir):
-        if files:
+        if files and glob.glob(os.path.join(root, '*.TIF')):
             process(root)
 
 
