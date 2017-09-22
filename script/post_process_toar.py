@@ -65,11 +65,23 @@ def process(out_dir, shp_path, in_path, tag_name=None, dry_run=False):
 
     return out_path
 
+def is_thermal_band(path):
+    return ('LANDSAT_8' in path and any(b in path for b in ('B10', 'B11'))) or \
+           (('LANDSAT_5' in path or 'LANDSAT_7' in path) and 'B6' in path)
+
 def translate(in_path, out_path, dry_run=False):
     """Convierte el raster a un GeoTIFF comprimido de UInt16"""
-    cmd = 'gdal_translate -q -ot UInt16 -of GTiff -scale 0 1 1 10000 ' \
-          '-a_nodata 0 {src} -co compress=lzw {dst}'.format(
-                  src=in_path, dst=out_path)
+
+    # Sólo reescala de 0..1 a 1..10000 si no es banda térmica
+    # Las bandas térmicas están en grados Kelvin, con lo cual no hace
+    # falta escalarlo.
+    scale_opts = ''
+    if not is_thermal_band(in_path):
+        scale_opts = '-scale 0 1 1 10000'
+
+    cmd = 'gdal_translate -q -ot UInt16 -of GTiff ' \
+          '-a_nodata 0 {scale_opts} {src} -co compress=lzw {dst}'.format(
+                  src=in_path, dst=out_path, scale_opts=scale_opts)
     if dry_run:
         print(cmd)
     else:
