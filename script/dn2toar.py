@@ -49,7 +49,15 @@ def remove_all_rasters():
                 name=fname)
 
 def main():
-    data_dir = '/data'
+    import argparse
+
+    parser = argparse.ArgumentParser(
+            description='Convierte DNs de imágenes Landsat a reflectancia ToA')
+    parser.add_argument('--input-dir', '-i', default='/data',
+            help='Ruta donde están almacenadas las imágenes')
+    args = parser.parse_args()
+
+    data_dir = args.input_dir
     landsat_dirs = glob.glob(os.path.join(data_dir, 'LANDSAT_*/'))
 
     for ldir in landsat_dirs:
