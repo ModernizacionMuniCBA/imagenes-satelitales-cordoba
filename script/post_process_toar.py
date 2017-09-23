@@ -72,20 +72,22 @@ def is_thermal_band(path):
 def translate(in_path, out_path, dry_run=False):
     """Convierte el raster a un GeoTIFF comprimido de UInt16"""
 
-    # Sólo reescala de 0..1 a 1..10000 si no es banda térmica
-    # Las bandas térmicas están en grados Kelvin, con lo cual no hace
-    # falta escalarlo.
-    scale_opts = ''
-    if not is_thermal_band(in_path):
-        scale_opts = '-scale 0 1 1 10000'
+    cmd = 'gdal_translate -q -of GTiff ' \
+          '-a_nodata 0 {extra_opts} {src} -co compress=lzw {dst}'
 
-    cmd = 'gdal_translate -q -ot UInt16 -of GTiff ' \
-          '-a_nodata 0 {scale_opts} {src} -co compress=lzw {dst}'.format(
-                  src=in_path, dst=out_path, scale_opts=scale_opts)
+    # Sólo reescala de 0..1 a 1..255 si no es banda térmica.
+    # Las bandas térmicas están en grados Kelvin.
+    if is_thermal_band(in_path):
+        opts = '-ot UInt16'
+    else:
+        opts = '-ot Byte -scale 0 1 1 255'
+
+    cmd = cmd.format(src=in_path, dst=out_path, extra_opts=opts)
     if dry_run:
         print(cmd)
     else:
         subprocess.run(cmd, shell=True)
+
     return out_path
 
 def get_output_path(in_path, out_dir, tag_name=None):
