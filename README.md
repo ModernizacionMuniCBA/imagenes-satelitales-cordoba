@@ -10,11 +10,73 @@ satelitales anuales de [Landsat](https://es.wikipedia.org/wiki/Landsat), las
 procesa, y genera una serie de imágenes compuestas de color natural y color
 falso para el análisis de la mancha urbana en el Municipio de Córdoba.
 
+## Instalación
+
+El código está pensado para ser ejecutado en Ubuntu/Debian y depende de las
+siguientes bibliotecas y programas:
+
+* Python 3.3+
+* GDAL/OGR 1.8+
+* proj.4
+* GRASS GIS 7.2
+* Google Cloud SDK
+* Docker engine (para GRASS)
+
+### Python, GDAL, proj.4
+
+En Ubuntu algunas de las dependencias se pueden instalar ejecutando la
+siguiente línea:
+
+```
+sudo apt-get install -y build-essential python3 libpython3-dev libgdal1-dev
+```
+
+Los paquetes de Python necesarios están listados en `requirements.txt`. Para
+instalarlos, ejecutar lo siguiente:
+
+```
+sudo -H pip install -r requirements.txt
+```
+
+### Google Cloud SDK
+
+Para los scripts de consulta y descarga de imágenes (`script/query` y
+`script/download`) es necesario tener una cuenta de Google e [instalar Google
+Cloud SDK](https://cloud.google.com/sdk/downloads).
+
+La forma más facil de instalar el SDK es usando el instalador interactivo.
+Desde una línea de comando ejecutar:
+
+```
+curl https://sdk.cloud.google.com | bash
+```
+
+Al terminar, reiniciar la terminal o ejecutar el siguiente comando:
+
+```
+exec -l $SHELL
+```
+
+Finalmente, para configurar el SDK con nuestra cuenta de Google:
+
+```
+gcloud init
+```
+
+### Docker engine
+
+En una etapa del proceso se utiliza GRASS GIS para hacer distintas correcciones
+a las imágenes originales.  Para simplificar el proceso, se provee de un script que
+levanta un contenedor Docker de GRASS.
+
+Ver [Get Docker CE for
+Ubuntu](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-from-a-package)
+para más información sobre cómo instalar Docker engine en Ubuntu.
+
+## Uso
+
 ### Consulta y descarga
 
-Para esta etapa del proceso es necesario una cuenta de Google e [instalar Google Cloud SDK](https://cloud.google.com/sdk/downloads).
-
-*(explicar como instalar y configurar gsutil)*
 ...
 
 #### Consulta con `script/query`
@@ -55,13 +117,13 @@ reflectancia *Top-of-Atmosphere* (ToA, o *at-sensor reflectance*).
 
 A grandes rasgos los pasos de esta etapa son los siguientes:
 
-* `fill_slc_gaps` (sólo **Landsat 7**): Se rellenan los gaps causados por la
+* (sólo **Landsat 7**): Se rellenan los gaps causados por la
   [falla del scanline corrector](https://landsat.usgs.gov/slc-products-background)
   post-2003 en el Landsat 7.
-* `cut_image`: Se recortan las imágenes con el bounding box del shapefile pedido.
-* `create_rgb_images`: Se generan imágenes RGB color natural y color falso.
-* `gamma_corr`: Se aplica una corrección de gamma y contraste.
-* `hist_match`: Se aplica *histogram matching* para que las imágenes compuestas
+* Se recortan las imágenes con el bounding box del shapefile pedido.
+* Se generan imágenes RGB color natural y color falso.
+* Se aplica una corrección de gamma y contraste.
+* Se aplica *histogram matching* para que las imágenes compuestas
   sean comparables en el tiempo.
 
 ...
