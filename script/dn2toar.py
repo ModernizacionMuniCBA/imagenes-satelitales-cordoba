@@ -48,7 +48,7 @@ def remove_all_rasters():
         g.run_command('g.remove', flags='f', type='raster',
                 name=fname)
 
-def main():
+if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -75,7 +75,3 @@ def main():
                     export_toar_files(root)
                 finally:
                     remove_all_rasters()
-
-
-if __name__ == '__main__':
-    main()

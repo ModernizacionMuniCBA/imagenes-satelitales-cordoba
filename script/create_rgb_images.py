@@ -3,9 +3,10 @@
 """
 Genera una serie de imágenes multibanda a partir de las bandas ya procesadas:
 
-  * Genera imágenes multibanda color natural y color falso
-  * Corrige gamma y contraste
-  * Aplica _histogram matching_
+  * Genera imágenes multibanda color natural
+  * Corrige gamma y contraste a una imagen
+  * Aplica _histogram matching_ en base a la imagen corregida
+  * Crea gifs animados con los previews, ordenados por fecha
 
 """
 import glob
@@ -13,20 +14,28 @@ import os
 import rasterio
 import shutil
 import subprocess
+import imageio
+import numpy as np
+from itertools import groupby
+from PIL import Image, ImageDraw, ImageFont
 
 band_combinations = {
-    'LANDSAT_5-TM':         (3, 2, 1),
-    'LANDSAT_7-ETM':        (3, 2, 1),
-    'LANDSAT_8-OLI_TIRS':   (4, 3, 2),
+    'LANDSAT_5-TM':       (3, 2, 1),
+    'LANDSAT_7-ETM':      (3, 2, 1),
+    'LANDSAT_8-OLI_TIRS': (4, 3, 2),
 }
 
 def process(root):
     out_path = create_rgb_image(root)
-    correct_color(out_path)
+    ref_path = reference_image_path(root)
+    # Corrige contraste y gamma sólo a la imagen de referencia
+    if out_path == ref_path:
+        correct_color(out_path)
+    apply_histogram_matching(out_path, ref_path)
     export_png(out_path)
 
 def get_band_filenames(root):
-    satsensor = root.split('/')[-1]
+    satsensor = root.split(os.path.sep)[-1]
     bands = band_combinations[satsensor]
     return [glob.glob(os.path.join(root, '*_B{}.TIF'.format(n)))[0] for n in bands]
 
@@ -47,15 +56,27 @@ def create_rgb_image(root):
 def correct_color(in_path):
     """Aplica una corrección de gamma y saturación para mejorar el contraste"""
     tmp_path = in_path + '.tmp'
-    cmd = 'rio color -d uint16 -j 4 {src} {dst} ' \
-          'sigmoidal RGB 5 0.2 ' \
-          'gamma R 1.04 ' \
-          'gamma G 1.05 ' \
-          'gamma B 1.02 ' \
-          'saturation 1.4'.format(src=in_path, dst=tmp_path)
+    cmd = 'rio color -j -1 {src} {dst} ' \
+          'sigmoidal RGB 4 0.2 gamma R 1.05 gamma G 1.04 gamma B 1.02 saturation 1.2'.format(src=in_path, dst=tmp_path)
     subprocess.run(cmd, shell=True)
     shutil.move(tmp_path, in_path)
     print('{} color corrected'.format(in_path))
+
+def apply_histogram_matching(in_path, ref_path):
+    """Aplica especificación de histograma en base a una imagen de referencia"""
+    tmp_path = in_path + '.tmp'
+    cmd = 'rio hist ' \
+          '-c LCH -b 1,2,3 ' \
+          '{src} {ref} {dst}'.format(src=in_path, ref=ref_path, dst=tmp_path)
+    subprocess.run(cmd, shell=True)
+    shutil.move(tmp_path, in_path)
+    print('{} applied histogram matching using {}'.format(in_path, ref_path))
+
+def reference_image_path(root):
+    #satsensor = root.split(os.path.sep)[-1]  # toma por satélite como referencia
+    satsensor = '*'   # toma cualquier imagen como referencia
+    pattern = os.path.join(*root.split(os.path.sep)[:-2], '*', satsensor, 'rgb_preview.tif')
+    return glob.glob(pattern)[0]
 
 def export_png(in_path):
     """Exporta la imagen en .PNG"""
@@ -63,15 +84,58 @@ def export_png(in_path):
     out_path = '{}.png'.format(fname)
     cmd = 'gdal_translate -q {src} {dst} ' \
           '-of PNG -ot Byte ' \
-          '-scale_1 1 10000 ' \
-          '-scale_2 1 10000 ' \
-          '-scale_3 1 10000'.format(src=in_path, dst=out_path)
+          '-scale_1 1 255 ' \
+          '-scale_2 1 255 ' \
+          '-scale_3 1 255'.format(src=in_path, dst=out_path)
     subprocess.run(cmd, shell=True)
     print('{} written'.format(out_path))
 
+def create_animations_per_satsensor(input_dir, **kwargs):
+    """Crea GIFs animados a partir de los previews RGB de cada satélite"""
 
-def main():
+    def sortkey(fname):
+        """Ordena por (satsensor, year)"""
+        ps = fname.split(os.path.sep)
+        return (ps[-2], ps[-3])
+
+    files = sorted(rgb_preview_files(input_dir), key=sortkey)
+    for satsensor, files in groupby(files, lambda f: f.split(os.path.sep)[-2]):
+        gif_path = os.path.join(input_dir, 'rgb_{}.gif'.format(satsensor))
+        create_animation(files, gif_path, **kwargs)
+        print('{} written'.format(gif_path))
+
+def rgb_preview_files(input_dir):
+    for root, dirs, files in os.walk(input_dir):
+        if files:
+            for fname in glob.glob(os.path.join(root, 'rgb_preview.png')):
+                yield fname
+
+def create_animation(files, output_path, **kwargs):
+    frames = []
+    for fname in files:
+        frame = imageio.imread(fname)
+        year = fname.split(os.path.sep)[-3]
+        annotated_frame = annotate_image(frame, year)
+        frames.append(annotated_frame)
+    imageio.mimsave(output_path, frames, format='GIF', **kwargs)
+
+def annotate_image(img_array, year):
+    img = Image.fromarray(img_array)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("/usr/share/fonts/truetype/roboto/hinted/Roboto-Bold.ttf", 32, encoding="unic")
+    draw.text((img.width - 85, img.height - 55), year, (255, 255, 255), font=font)
+    new_img_array = np.array(img.getdata(), dtype=np.uint8).reshape(img_array.shape)
+    return new_img_array
+
+def all_scenes(input_dir):
+    for root, dirs, files in os.walk(input_dir):
+        if files and glob.glob(os.path.join(root, '*.TIF')):
+            yield root
+
+
+if __name__ == '__main__':
     import argparse
+    import multiprocessing
 
     parser = argparse.ArgumentParser(
             description='Genera imágenes RGB a partir de bandas procesadas de Landsat',
@@ -82,10 +146,12 @@ def main():
 
     args = parser.parse_args()
 
-    for root, dirs, files in os.walk(args.input_dir):
-        if files and glob.glob(os.path.join(root, '*.TIF')):
-            process(root)
+    # Procesa todas las imagenes (crea preview, corrige contraste y hist matching)
+    count = multiprocessing.cpu_count()
+    with multiprocessing.Pool(count) as pool:
+        pool.map(process, list(all_scenes(args.input_dir)))
 
-
-if __name__ == '__main__':
-    main()
+    # Crea gifs animados de los previews RGB, por satélite
+    frame_duration = 0.1
+    create_animations_per_satsensor(args.input_dir, duration=frame_duration)
+    create_animation(sorted(rgb_preview_files(args.input_dir)), os.path.join(args.input_dir, 'rgb_all.gif'), duration=frame_duration)

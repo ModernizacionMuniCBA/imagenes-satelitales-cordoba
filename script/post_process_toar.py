@@ -133,7 +133,8 @@ def each_file(input_dir, pattern):
             for path in glob.glob(os.path.join(root, pattern)):
                 yield path
 
-def main():
+
+if __name__ == '__main__':
     import argparse
     import multiprocessing
     from functools import partial
@@ -175,6 +176,3 @@ def main():
     #if not args.dry_run:
     #    for scene_dir in all_scenes(args.input_dir):
     #        write_metadata_file(scene_dir, args.output_dir, tag_name=args.tag_name)
-
-if __name__ == '__main__':
-    main()
