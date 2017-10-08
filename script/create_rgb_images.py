@@ -25,12 +25,14 @@ band_combinations = {
     'LANDSAT_8-OLI_TIRS': (4, 3, 2),
 }
 
-def process(root):
+def process_reference_image(root):
     out_path = create_rgb_image(root)
-    ref_path = reference_image_path(root)
-    # Corrige contraste y gamma sólo a la imagen de referencia
-    if out_path == ref_path:
-        correct_color(out_path)
+    correct_color(out_path)
+    export_png(out_path)
+
+def process_image(ref_scene, root):
+    out_path = create_rgb_image(root)
+    ref_path = glob.glob(os.path.join(ref_scene, 'rgb_preview.tif'))[0]
     apply_histogram_matching(out_path, ref_path)
     export_png(out_path)
 
@@ -57,7 +59,7 @@ def correct_color(in_path):
     """Aplica una corrección de gamma y saturación para mejorar el contraste"""
     tmp_path = in_path + '.tmp'
     cmd = 'rio color -j -1 {src} {dst} ' \
-          'sigmoidal RGB 4 0.2 gamma R 1.05 gamma G 1.04 gamma B 1.02 saturation 1.2'.format(src=in_path, dst=tmp_path)
+          'sigmoidal RGB 5 0.1 gamma R 1.06 gamma G 1.08 gamma B 1.02 saturation 1.2'.format(src=in_path, dst=tmp_path)
     subprocess.run(cmd, shell=True)
     shutil.move(tmp_path, in_path)
     print('{} color corrected'.format(in_path))
@@ -71,12 +73,6 @@ def apply_histogram_matching(in_path, ref_path):
     subprocess.run(cmd, shell=True)
     shutil.move(tmp_path, in_path)
     print('{} applied histogram matching using {}'.format(in_path, ref_path))
-
-def reference_image_path(root):
-    #satsensor = root.split(os.path.sep)[-1]  # toma por satélite como referencia
-    satsensor = '*'   # toma cualquier imagen como referencia
-    pattern = os.path.join(*root.split(os.path.sep)[:-2], '*', satsensor, 'rgb_preview.tif')
-    return glob.glob(pattern)[0]
 
 def export_png(in_path):
     """Exporta la imagen en .PNG"""
@@ -136,6 +132,7 @@ def all_scenes(input_dir):
 if __name__ == '__main__':
     import argparse
     import multiprocessing
+    from functools import partial
 
     parser = argparse.ArgumentParser(
             description='Genera imágenes RGB a partir de bandas procesadas de Landsat',
@@ -146,12 +143,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Procesa todas las imagenes (crea preview, corrige contraste y hist matching)
+    # Primero procesa la imagen de referencia para la especificación de histograma
+    all_scenes = list(all_scenes(args.input_dir))
+    ref_scene, other_scenes = all_scenes[0], all_scenes[1:-1]
+    process_reference_image(ref_scene)
+
+    # Luego procesa todas las imagenes
     count = multiprocessing.cpu_count()
     with multiprocessing.Pool(count) as pool:
-        pool.map(process, list(all_scenes(args.input_dir)))
+        worker = partial(process_image, ref_scene)
+        pool.map(worker, other_scenes)
 
     # Crea gifs animados de los previews RGB, por satélite
-    frame_duration = 0.1
-    create_animations_per_satsensor(args.input_dir, duration=frame_duration)
-    create_animation(sorted(rgb_preview_files(args.input_dir)), os.path.join(args.input_dir, 'rgb_all.gif'), duration=frame_duration)
+    create_animations_per_satsensor(args.input_dir, duration=0.1)
