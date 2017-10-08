@@ -161,7 +161,6 @@ if __name__ == '__main__':
         args.output_dir = os.path.join(args.output_dir, args.tag_name)
 
     count = multiprocessing.cpu_count()
-
     with multiprocessing.Pool(count) as pool:
         files = list(each_file(args.input_dir, args.pattern))
 
