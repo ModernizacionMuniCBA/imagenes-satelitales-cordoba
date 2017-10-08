@@ -3,8 +3,8 @@
 """
 Realiza el último paso de procesamiento de las bandas post-ToA:
 
-1. Cambia tipo de datos de Float64 a UInt16, con un rango de 1 a 10000,
-   y 0 para nodata.
+1. Cambia tipo de datos de Float64 a UInt8, con un rango de 1 a 255,
+   y 0 para nodata.  La banda térmica la pasa a UInt16 sin reescalar.
 2. (sólo Landsat 7) Rellena gaps en imágenes con SLC-off por falla del SLC
 3. Recorta todas las bandas con el bounding box de un Shapefile
 
