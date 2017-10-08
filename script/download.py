@@ -5,13 +5,18 @@ Dado un CSV pasado por entrada estandar (stdin), descarga los productos del
 dataset de Google.
 
 """
-import subprocess
+import json
 import os
+import subprocess
 
-def download_product(product, dstpath, dry_run=False):
-    # Define ruta y crea directorio
+def product_dir(product, output_dir):
     satsensor = '{}-{}'.format(product['spacecraft_id'], product['sensor_id'])
-    path = os.path.join(dstpath, satsensor, product['year'], product['id'])
+    path = os.path.join(output_dir, satsensor, product['year'], product['id'])
+    return path
+
+def download_product(product, output_dir, dry_run=False):
+    # Define ruta y crea directorio
+    path = product_id(product, output_dir)
     if not dry_run:
         os.makedirs(path, exist_ok=True)
 
@@ -25,6 +30,16 @@ def download_product(product, dstpath, dry_run=False):
 
     # Ejecuta el comando
     subprocess.run(cmd, shell=True)
+
+def write_metadata_file(product, output_dir, dry_run=False):
+    if dry_run:
+        return
+    path = product_dir(product, output_dir)
+    os.makedirs(path, exist_ok=True)
+
+    json_path = os.path.join(path, 'metadata.json')
+    with open(json_path, 'w') as f:
+        f.write(json.dumps(product))
 
 if __name__ == '__main__':
     import argparse
@@ -48,3 +63,4 @@ if __name__ == '__main__':
     reader = csv.DictReader(args.csvfile)
     for row in reader:
         download_product(row, args.output_dir, dry_run=args.dry_run)
+        write_metadata_file(row, args.output_dir, dry_run=args.dry_run)

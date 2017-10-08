@@ -14,54 +14,49 @@ Ejemplo de estructura de directorio:
 processed_data/
     2009/
         LANDSAT_5-TM/
+            2009_LANDSAT_5-TM_metadata.json
             2009_LANDSAT_5-TM_B1.tif
             2009_LANDSAT_5-TM_B2.tif
             2009_LANDSAT_5-TM_B3.tif
             ...
         LANDSAT_7-ETM/
+            2009_LANDSAT_7-ETM_metadata.json
             2009_LANDSAT_7-ETM_B1.tif
             2009_LANDSAT_7-ETM_B2.tif
             2009_LANDSAT_7-ETM_B3.tif
             ...
-        metadata.json
     2010/
         ...
 ```
 
-`metadata.json` contiene información sobre los productos o escenas que se
-utilizaron para la generación de las bandas procesadas.
+En cada directorio se escribe un archivo `metadata.json` que contiene
+información sobre la escena utilizada.
 
-```
-{ created_at: ,
-  git_commit: ,
-  datasets: [
-    { id: 'LANDSAT_5',
-      sensor_id: 'TM',
-      scene_ids: ['LT52290822009303CUB00'] },
-    { id: 'LANDSAT_7',
-      sensor_id: 'ETM',
-      scene_ids: ['LE72290822013002CUB00'] },
-  ] }
-```
 """
 import glob
 import os
 import shutil
 import subprocess
+import json
+from datetime import datetime
+
+metadata_fname = 'metadata.json'
 
 def process(out_dir, shp_path, in_path, tag_name=None, dry_run=False):
     out_path = get_output_path(in_path, out_dir, tag_name=tag_name)
 
     # Crea directorio (si no existe)
-    out_dirname = os.path.dirname(out_path)
-    os.makedirs(out_dirname, exist_ok=True)
+    if not dry_run:
+        out_dirname = os.path.dirname(out_path)
+        os.makedirs(out_dirname, exist_ok=True)
 
     # Procesa imagen
     translate(in_path, out_path, dry_run=dry_run)
     fill_gaps(out_path, dry_run=dry_run)
     cut_image(out_path, shp_path, dry_run=dry_run)
 
-    print('{} written'.format(out_path))
+    if not dry_run:
+        print('{} written'.format(out_path))
 
     return out_path
 
@@ -126,12 +121,36 @@ def cut_image(in_path, shp_path, dry_run=False):
         shutil.move(tmp_path, in_path)
     return in_path
 
-def each_file(input_dir, pattern):
+def all_scene_files(input_dir, pattern):
     pat = os.path.join(input_dir, '**', pattern)
     for root, _, files in os.walk(input_dir):
         if files:
             for path in glob.glob(os.path.join(root, pattern)):
                 yield path
+
+def copy_metadata_files(input_dir, output_dir, tag_name=None, dry_run=False):
+    for root, _, files in os.walk(input_dir):
+        if metadata_fname in files:
+            src = os.path.join(root, metadata_fname)
+
+            satsensor, year = root.split('/')[1:3]
+            dst_dirname = os.path.join(output_dir, year, satsensor)
+
+            if dry_run:
+                print('mkdir -p {}'.format(dst_dirname))
+            else:
+                os.makedirs(dst_dirname, exist_ok=True)
+
+            dst_fname = '{year}_{sat}_{fname}'.format(
+                year=year, sat=satsensor, fname=metadata_fname)
+            if tag_name:
+                dst_fname = '{}_{}'.format(tag_name, dst_fname)
+            dst = os.path.join(dst_dirname, dst_fname)
+
+            if dry_run:
+                print('cp {} {}'.format(src, dst))
+            else:
+                shutil.copyfile(src, dst)
 
 
 if __name__ == '__main__':
@@ -162,8 +181,7 @@ if __name__ == '__main__':
 
     count = multiprocessing.cpu_count()
     with multiprocessing.Pool(count) as pool:
-        files = list(each_file(args.input_dir, args.pattern))
-
+        files = list(all_scene_files(args.input_dir, args.pattern))
         worker = partial(process,
                 args.output_dir,
                 args.shape_file,
@@ -171,7 +189,5 @@ if __name__ == '__main__':
                 dry_run=args.dry_run)
         pool.map(worker, files)
 
-    # TODO
-    #if not args.dry_run:
-    #    for scene_dir in all_scenes(args.input_dir):
-    #        write_metadata_file(scene_dir, args.output_dir, tag_name=args.tag_name)
+    copy_metadata_files(args.input_dir, args.output_dir,
+        tag_name=args.tag_name, dry_run=args.dry_run)
