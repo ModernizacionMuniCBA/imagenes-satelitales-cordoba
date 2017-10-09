@@ -77,8 +77,6 @@ para más información sobre cómo instalar Docker engine en Ubuntu.
 
 ### Consulta y descarga
 
-...
-
 #### Consulta con `script/query`
 
 Consulta en el [dataset de
@@ -86,15 +84,36 @@ BigQuery](https://bigquery.cloud.google.com/table/bigquery-public-data:cloud_sto
 de Google por imágenes de Landsat que contengan al Municipio, y genera un
 archivo CSV con la lista de cada producto por año.
 
-Se pide:
+Se asegura de armar una lista de escenas con las siguientes características:
 
 * Bajo porcentaje de nubosidad (menor a 1%).
-* Collección de nivel 1 (Tier 1): Las imágenes ya tuvieron procesamiento
-  geométrico y radiométrico.
+* Colección de nivel 1 (Tier 1): Las imágenes de esta colección ya tienen
+  procesamiento geométrico y radiométrico.
 * Sensores TM, ETM+ y OLI/TIRS: Estos sensores tienen bandas para rojo, verde y azul.
-* Una imagen de cada satélite, en caso de que haya más de uno en un año dado
+* Una imagen de cada satélite, en caso de que haya más de uno en un año dado.
 
+El script toma de entrada un archivo de geometría (Shapefile, GeoJSON, etc.),
+lo reproyecta a WGS84 (EPSG 4326), consulta por imágenes que contengan el
+*bounding box* de todos los features, y escribe por salida estándar un archivo
+CSV con información sobre cada escena, necesaria para la descarga.
+
+Ejemplo de uso:
+
+```
+script/query.py EjidoMunicipal.shp > escenas.csv
+```
+
+El CSV tiene esta apariencia:
+
+```
+id,year,sensing_time,spacecraft_id,sensor_id,wrs_path,wrs_row,total_size,base_url
+LC82290822017101LGN00,2017,2017-04-11T14:08:02.7848630Z,LANDSAT_8,OLI_TIRS,229,82,960658101,gs://gcp-public-data-landsat/LC08/01/229/082/LC08_L1TP_229082_20170411_20170415_01_T1
+LC82290822016259LGN01,2016,2016-09-15T14:08:47.3154210Z,LANDSAT_8,OLI_TIRS,229,82,1001887426,gs://gcp-public-data-landsat/LC08/01/229/082/LC08_L1TP_229082_20160915_20170321_01_T1
+LE72290822016235CUB00,2016,2016-08-22T14:11:12.3172647Z,LANDSAT_7,ETM,229,82,221288879,gs://gcp-public-data-landsat/LE07/01/229/082/LE07_L1TP_229082_20160822_20161007_01_T1
+LC82290822015288LGN01,2015,2015-10-15T14:08:33.3921030Z,LANDSAT_8,OLI_TIRS,229,82,1010734265,gs://gcp-public-data-landsat/LC08/01/229/082/LC08_L1TP_229082_20151015_20170403_01_T1
 ...
+```
+
 
 #### Descarga con `script/download`
 
@@ -106,14 +125,14 @@ Google](https://cloud.google.com/storage/docs/public-datasets/landsat) usando
 
 ### Procesamiento de las imágenes
 
-#### GRASS GIS
+#### Conversión de DN a reflectancia ToA con GRASS
 
 Lo primero que se debe hacer es convertir las imágenes de Landsat originales a
 reflectancia *Top-of-Atmosphere* (ToA, o *at-sensor reflectance*).
 
 ...
 
-#### Otros procesos con `script/process`
+#### Post procesamiento con `script/pots_process_toar`
 
 A grandes rasgos los pasos de esta etapa son los siguientes:
 
@@ -125,5 +144,7 @@ A grandes rasgos los pasos de esta etapa son los siguientes:
 * Se aplica una corrección de gamma y contraste.
 * Se aplica *histogram matching* para que las imágenes compuestas
   sean comparables en el tiempo.
+
+### Imagenes RGB
 
 ...
