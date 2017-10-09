@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Script para GRASS GIS que procesa imágenes de Landsat de DNs a Reflectancia ToA.
+Aplica una corrección atmosférica con el método DOS (Dark Object Substraction).
 
 Para que funcione correctamente, se debe ejecutar dentor de una sesión de GRASS.
 
@@ -30,7 +31,8 @@ def convert_dn_to_toar(root, product_id):
     g.message('Applying ToA reflectance conversion to {}'.format(root))
     metfile = os.path.join(root, '{}_MTL.txt'.format(product_id))
     g.run_command('i.landsat.toar', input='{}_B'.format(product_id),
-            output='{}_TOAR_B'.format(product_id), metfile=metfile)
+            output='{}_TOAR_B'.format(product_id), metfile=metfile,
+            method='dos3')
 
 def export_toar_files(root, fname):
     output_root = os.path.join(root, '{}.TIF'.format(fname))
@@ -87,3 +89,5 @@ if __name__ == '__main__':
             pool.map(export_worker, loaded_files)
         finally:
             remove_all_rasters()
+
+    print('All done! You can exit now (Ctrl+D)')
