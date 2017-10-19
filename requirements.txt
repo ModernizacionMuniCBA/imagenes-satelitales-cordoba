@@ -2,4 +2,5 @@ Fiona==1.7.9
 google-cloud-bigquery==0.27.0
 pyproj==1.9.5.1
 rasterio==0.36.0
-rio-color==0.4.0
+rio-hist==0.3.0
+scikit-image==0.13.1
