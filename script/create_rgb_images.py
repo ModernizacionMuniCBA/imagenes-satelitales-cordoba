@@ -27,13 +27,15 @@ band_combinations = {
 
 def process_reference_image(root):
     out_path = create_rgb_image(root)
-    rescale_intensity(out_path)
+    #rescale_intensity(out_path)
+    correct_color(out_path)
     export_png(out_path)
 
 def process_image(ref_scene, root, match_histogram=False):
     out_path = create_rgb_image(root)
     ref_path = glob.glob(os.path.join(ref_scene, 'rgb_preview.tif'))[0]
-    rescale_intensity(out_path)
+    #rescale_intensity(out_path)
+    correct_color(out_path)
     if match_histogram:
         apply_histogram_matching(out_path, ref_path)
     export_png(out_path)
@@ -59,7 +61,8 @@ def create_rgb_image(root):
 
 def rescale_intensity(path):
     img = skimage.io.imread(path)
-    img = skimage.exposure.rescale_intensity(img, (10, 98))
+    low, high = np.percentile(img, (3, 97))
+    img = skimage.exposure.rescale_intensity(img, in_range=(low, high))
     skimage.io.imsave(path, img)
     print('{} rescaled intensity'.format(path))
 
@@ -76,7 +79,7 @@ def apply_histogram_matching(in_path, ref_path):
     """Aplica especificación de histograma en base a una imagen de referencia"""
     tmp_path = in_path + '.tmp'
     cmd = 'rio hist ' \
-          '-c LCH -b 1,2,3 ' \
+          '-c RGB -b 1,2,3 ' \
           '{src} {ref} {dst}'.format(src=in_path, ref=ref_path, dst=tmp_path)
     subprocess.run(cmd, shell=True)
     shutil.move(tmp_path, in_path)
