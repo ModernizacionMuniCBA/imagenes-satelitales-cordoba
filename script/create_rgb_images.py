@@ -14,10 +14,10 @@ import os
 import rasterio
 import shutil
 import subprocess
-import imageio
 import numpy as np
 from itertools import groupby
-from PIL import Image, ImageDraw, ImageFont
+import skimage.io
+import skimage.exposure
 
 band_combinations = {
     'LANDSAT_5-TM':       (3, 2, 1),
@@ -27,13 +27,15 @@ band_combinations = {
 
 def process_reference_image(root):
     out_path = create_rgb_image(root)
-    correct_color(out_path)
+    rescale_intensity(out_path)
     export_png(out_path)
 
-def process_image(ref_scene, root):
+def process_image(ref_scene, root, match_histogram=False):
     out_path = create_rgb_image(root)
     ref_path = glob.glob(os.path.join(ref_scene, 'rgb_preview.tif'))[0]
-    apply_histogram_matching(out_path, ref_path)
+    rescale_intensity(out_path)
+    if match_histogram:
+        apply_histogram_matching(out_path, ref_path)
     export_png(out_path)
 
 def get_band_filenames(root):
@@ -54,6 +56,12 @@ def create_rgb_image(root):
             dst.write(b.read(1), 3)
     print('{} written'.format(out_path))
     return out_path
+
+def rescale_intensity(path):
+    img = skimage.io.imread(path)
+    img = skimage.exposure.rescale_intensity(img, (10, 98))
+    skimage.io.imsave(path, img)
+    print('{} rescaled intensity'.format(path))
 
 def correct_color(in_path):
     """Aplica una corrección de gamma y saturación para mejorar el contraste"""
@@ -107,6 +115,8 @@ def rgb_preview_files(input_dir):
                 yield fname
 
 def create_animation(files, output_path, **kwargs):
+    import imageio
+
     frames = []
     for fname in files:
         frame = imageio.imread(fname)
@@ -116,6 +126,8 @@ def create_animation(files, output_path, **kwargs):
     imageio.mimsave(output_path, frames, format='GIF', **kwargs)
 
 def annotate_image(img_array, year):
+    from PIL import Image, ImageDraw, ImageFont
+
     img = Image.fromarray(img_array)
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype("/usr/share/fonts/truetype/roboto/hinted/Roboto-Bold.ttf", 32, encoding="unic")
@@ -138,8 +150,12 @@ if __name__ == '__main__':
             description='Genera imágenes RGB a partir de bandas procesadas de Landsat',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--input-dir', '-i', nargs='?', default='processed_data/',
+    parser.add_argument('--input-dir', '-i', default='processed_data/',
             help='Ruta donde están almacenadas las imágenes')
+    parser.add_argument('--match-histogram', action='store_true', default=False,
+            help='Aplica especificación de histograma a todas las imágenes')
+    parser.add_argument('--create-gif', action='store_true', default=False,
+            help='Genera una animación gif de las imágenes año por año, para cada sensor')
 
     args = parser.parse_args()
 
@@ -151,8 +167,10 @@ if __name__ == '__main__':
     # Luego procesa todas las imagenes
     count = multiprocessing.cpu_count()
     with multiprocessing.Pool(count) as pool:
-        worker = partial(process_image, ref_scene)
+        worker = partial(process_image, ref_scene,
+                match_histogram=args.match_histogram)
         pool.map(worker, other_scenes)
 
     # Crea gifs animados de los previews RGB, por satélite
-    create_animations_per_satsensor(args.input_dir, duration=0.1)
+    if args.create_gif:
+        create_animations_per_satsensor(args.input_dir, duration=0.1)
