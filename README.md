@@ -121,30 +121,49 @@ A partir del CSV generado anteriormente, descarga las imágenes del [dataset de
 Google](https://cloud.google.com/storage/docs/public-datasets/landsat) usando
 `gsutil`.
 
-...
+Por default los productos de Landsat se van a guardar en `./data`.
 
 ### Procesamiento de las imágenes
 
 #### Conversión de DN a reflectancia ToA con GRASS
 
 Lo primero que se debe hacer es convertir las imágenes de Landsat originales a
-reflectancia *Top-of-Atmosphere* (ToA, o *at-sensor reflectance*).
+reflectancia *Top-of-Atmosphere* (ToA, o *at-sensor reflectance*).  Para ello,
+se utilizan la herramienta `i.landsat.toar` del paquete GRASS 7.
 
-...
+`script/run_grass.py` se encarga de crear un container de Docker de una imagen
+de GRASS 7 preparada previamente.  También se asegura de montar los volúmenes
+que corresponden a las imágenes descargadas y al script de procesamiento.
+
+Una vez ejecutado, hay que correr el script de procesamiento desde el intérprete de GRASS:
+
+```
+> /script/dn2toar.py
+```
 
 #### Post procesamiento con `script/pots_process_toar`
 
 A grandes rasgos los pasos de esta etapa son los siguientes:
 
-* (sólo **Landsat 7**): Se rellenan los gaps causados por la
-  [falla del scanline corrector](https://landsat.usgs.gov/slc-products-background)
+* Cambia el tipo de datos de Float64 (punto flotante de 64bit) a UInt8 (entero
+  sin signo 8bit), con un rango de 1 a 255, y 0 para NODATA.  La banda térmica
+  la pasa a UInt16 sin reescalar, dado que representa la temperatura en grados
+  Kelvin.
+* (sólo **Landsat 7**): Se rellenan los *gaps* causados por la
+  [falla del Scanline Corrector](https://landsat.usgs.gov/slc-products-background)
   post-2003 en el Landsat 7.
 * Se recortan las imágenes con el bounding box del shapefile pedido.
-* Se generan imágenes RGB color natural y color falso.
-* Se aplica una corrección de gamma y contraste.
-* Se aplica *histogram matching* para que las imágenes compuestas
-  sean comparables en el tiempo.
 
-### Imagenes RGB
+#### Generación de imágenes RGB con `script/create_rgb_images.py`
 
-...
+Finalmente este script genera las imágenes *preview* de color natural
+utilizando las bandas rojo verde y azul de cada producto.
+
+El script aplica una corrección de gamma y contraste a todas las imágenes, para
+mejorar el resultado.
+
+La opción `--match-histogram` toma una imagen de referencia (la primera) y
+aplica sobre el resto de las imágenes *histogram matching*, para que estas sean
+comparables en el tiempo.  Con `--create-gif` el script genera una animación
+gif de las imágenes año por año, para cada sensor.
+En el caso de crear una animación, es recomendable usar matcheo de histograma.
